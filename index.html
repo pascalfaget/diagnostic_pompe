@@ -1,50 +1,77 @@
- <!DOCTYPE html>
-<html>
+<!DOCTYPE html>
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Test IA Pompe</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnostic Pompe IA</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/audio@0.8/dist/teachablemachine-audio.min.js"></script>
 </head>
-<body>
-    <h1>Diagnostic IA</h1>
-    <button id="btn" style="padding:20px; font-size:20px;">DÉMARRER L'ANALYSE</button>
-    <div id="result" style="font-size:30px; margin-top:20px;">--</div>
+<body style="font-family: sans-serif; text-align: center; padding: 50px; background: #f4f7f6;">
 
-    <script>
-        // VERIFIE BIEN CETTE URL : Elle doit finir par un /
+    <div style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: inline-block;">
+        <h1>🔍 Analyseur de Cavitation</h1>
+        <div id="status-light" style="width: 80px; height: 80px; border-radius: 50%; background: #ccc; margin: 20px auto;"></div>
+        <button id="btn" onclick="init()" style="padding: 15px 30px; font-size: 18px; cursor: pointer; background: #1a73e8; color: white; border: none; border-radius: 8px;">
+            DÉMARRER L'ANALYSE
+        </button>
+        <h2 id="result" style="margin-top: 20px; color: #333;">-- En attente --</h2>
+    </div>
+
+    <script type="text/javascript">
         const URL = "https://teachablemachine.withgoogle.com/models/oKIXEj4Fo/";
+        let recognizer;
 
         async function init() {
             const btn = document.getElementById("btn");
-            btn.innerText = "Chargement...";
-            
+            const resultLabel = document.getElementById("result");
+            const light = document.getElementById("status-light");
+
+            // SECURITE : On vérifie si la bibliothèque est chargée
+            if (typeof tmAudio === 'undefined') {
+                alert("Les scripts Google ne sont pas encore chargés. Attendez 5 secondes et réessayez.");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = "Connexion au micro...";
+
             try {
                 const checkpointURL = URL + "model.json";
                 const metadataURL = URL + "metadata.json";
 
-                const recognizer = tmAudio.create("BROWSER_FFT", undefined, checkpointURL, metadataURL);
+                recognizer = tmAudio.create("BROWSER_FFT", undefined, checkpointURL, metadataURL);
                 await recognizer.ensureModelLoaded();
                 
-                btn.innerText = "IA ACTIVE ✅";
-                btn.style.backgroundColor = "green";
+                btn.innerText = "ÉCOUTE EN COURS...";
+                btn.style.background = "#28a745";
 
                 recognizer.listen(result => {
                     const classLabels = recognizer.wordLabels();
-                    const highestValue = Math.max(...result.scores);
-                    const nearestClass = classLabels[result.scores.indexOf(highestValue)];
-                    document.getElementById("result").innerText = nearestClass;
+                    const scores = result.scores;
+                    let maxIndex = scores.indexOf(Math.max(...scores));
+                    let prediction = classLabels[maxIndex];
+
+                    resultLabel.innerText = prediction;
+
+                    // Logique visuelle
+                    if (prediction.includes("Normal")) light.style.background = "#2ecc71";
+                    else if (prediction.includes("Legere")) light.style.background = "#f1c40f";
+                    else if (prediction.includes("Severe")) light.style.background = "#e74c3c";
+                    else light.style.background = "#ccc";
+
                 }, {
-                    probabilityThreshold: 0.75
+                    probabilityThreshold: 0.70,
+                    overlapFactor: 0.50
                 });
-            } catch (e) {
-                alert("Erreur technique : " + e.message);
-                btn.innerText = "ERREUR";
+
+            } catch (err) {
+                console.error(err);
+                alert("Erreur micro : " + err.message);
+                btn.disabled = false;
+                btn.innerText = "RÉESSAYER";
             }
         }
-
-        document.getElementById("btn").addEventListener("click", init);
     </script>
 </body>
 </html>
-
