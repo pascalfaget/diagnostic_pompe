@@ -1,84 +1,49 @@
-<!DOCTYPE html>
-<html lang="fr">
+ <!DOCTYPE html>
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Diagnostic Pompe - IA</title>
+    <title>Test IA Pompe</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/audio@0.8/dist/teachablemachine-audio.min.js"></script>
-    <style>
-        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f4f9; }
-        .card { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: inline-block; }
-        #label-container { margin-top: 20px; font-size: 24px; font-weight: bold; }
-        .status { padding: 10px 20px; border-radius: 50px; color: white; margin-top: 10px; display: inline-block; }
-        .normal { background: #2ecc71; }
-        .warning { background: #f1c40f; color: black; }
-        .danger { background: #e74c3c; }
-        button { padding: 15px 30px; font-size: 18px; cursor: pointer; border-radius: 10px; border: none; background: #3498db; color: white; }
-    </style>
 </head>
 <body>
+    <h1>Diagnostic IA</h1>
+    <button id="btn" style="padding:20px; font-size:20px;">DÉMARRER L'ANALYSE</button>
+    <div id="result" style="font-size:30px; margin-top:20px;">--</div>
 
-    <div class="card">
-        <h1>🔍 Diagnostic Pompe</h1>
-        <p>Placez le micro près du corps de pompe</p>
-        <button type="button" onclick="init()">Démarrer l'Analyse</button>
-        <div id="label-container">-- En attente --</div>
-        <div id="status-box"></div>
-    </div>
+    <script>
+        // VERIFIE BIEN CETTE URL : Elle doit finir par un /
+        const URL = "https://teachablemachine.withgoogle.com/models/oKIXEj4Fo/";
 
-<script type="text/javascript">
-    // REMPLACEZ CETTE URL PAR LA VÔTRE :
-    const URL = "https://teachablemachine.withgoogle.com/models/oKIXEj4Fo/";
-
-    async function createModel() {
-	const checkpointURL = URL + "model.json";
-        const metadataURL = URL + "metadata.json";
-
-        // Correction ici : on utilise tmAudio au lieu de speechCommands
-        const recognizer = tmAudio.create("BROWSER_FFT", undefined, checkpointURL, metadataURL);
-
-        await recognizer.ensureModelLoaded();
-        return recognizer;
-    }
-
-    async function init() {
-        const recognizer = await createModel();
-        const classLabels = recognizer.wordLabels();
-        const container = document.getElementById("label-container");
-        const statusBox = document.getElementById("status-box");
-
-        recognizer.listen(result => {
-            const scores = result.scores;
-            // On cherche l'index du score le plus élevé
-            let maxScore = 0;
-            let bestClass = "";
-            for (let i = 0; i < classLabels.length; i++) {
-                if (scores[i] > maxScore) {
-                    maxScore = scores[i];
-                    bestClass = classLabels[i];
-                }
-            }
-
-            // Mise à jour de l'affichage
-            container.innerHTML = bestClass;
+        async function init() {
+            const btn = document.getElementById("btn");
+            btn.innerText = "Chargement...";
             
-            // Logique de couleur selon le nom de vos classes
-            if(bestClass.includes("Normal")) {
-                statusBox.innerHTML = '<span class="status normal">TOUT VA BIEN</span>';
-            } else if(bestClass.includes("Legere")) {
-                statusBox.innerHTML = '<span class="status warning">MAINTENANCE À PRÉVOIR</span>';
-            } else if(bestClass.includes("Severe")) {
-                statusBox.innerHTML = '<span class="status danger">DANGER : ARRÊT RECOMMANDÉ</span>';
-            } else {
-                statusBox.innerHTML = '';
+            try {
+                const checkpointURL = URL + "model.json";
+                const metadataURL = URL + "metadata.json";
+
+                const recognizer = tmAudio.create("BROWSER_FFT", undefined, checkpointURL, metadataURL);
+                await recognizer.ensureModelLoaded();
+                
+                btn.innerText = "IA ACTIVE ✅";
+                btn.style.backgroundColor = "green";
+
+                recognizer.listen(result => {
+                    const classLabels = recognizer.wordLabels();
+                    const highestValue = Math.max(...result.scores);
+                    const nearestClass = classLabels[result.scores.indexOf(highestValue)];
+                    document.getElementById("result").innerText = nearestClass;
+                }, {
+                    probabilityThreshold: 0.75
+                });
+            } catch (e) {
+                alert("Erreur technique : " + e.message);
+                btn.innerText = "ERREUR";
             }
-        }, {
-            includeSpectrogram: true,
-            probabilityThreshold: 0.75,
-            overlapFactor: 0.50
-        });
-    }
-</script>
+        }
+
+        document.getElementById("btn").addEventListener("click", init);
+    </script>
 </body>
 </html>
